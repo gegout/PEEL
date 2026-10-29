@@ -1,255 +1,86 @@
-# HAL 9000 Inside (Ubuntu Voice Assistant)
+# PEEL — Producer–Expert–Engineering Loop
 
-[![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
-[![Version: 0.2.0](https://img.shields.io/badge/Version-0.2.0-red.svg)](pyproject.toml)
+PEEL is a governed pattern for complex, long-running autonomous work.
 
-An autonomous local voice assistant for Ubuntu embodying the calm, polite, and precise persona of **HAL 9000** from *2001: A Space Odyssey*.
+An external **Authority** sets the mandate. **Producer** runs and verifies the loop.
+**Expert** writes one Directive per cycle. **Engineer** executes it and returns durable evidence and state.
 
-HAL 9000 Inside integrates local streaming automatic speech recognition, vector-embedded conversational memory, Model Context Protocol (MCP) tool use and serving, Puppeteer headless web retrieval, OpenRouter LLM reasoning, and native 22,050 Hz Piper TTS speech synthesis with half-duplex feedback prevention.
-
----
-
-## Key Features
-
-- **Local Low-Latency Speech-to-Text (STT):** NVIDIA Parakeet TDT 0.6B v3 model integrated via Canonical's Myna streaming engine with dynamic voice activity detection (VAD) and silence endpointing.
-- **Persistent Conversational Memory:**
-  - Semantic vector search using embedded local **Qdrant** and normalized 384-dimensional **Multilingual E5 Small** ONNX embeddings.
-  - Complete timestamped conversational history and turn tracking stored in SQLite.
-- **Model Context Protocol (MCP) Dual Architecture:**
-  - **MCP Server (`hal9000-inside mcp`):** Exposes HAL's embedded memory and Puppeteer web tools over stdio to any MCP client (Antigravity, Cursor, Claude Desktop).
-  - **MCP Client:** HAL autonomously connects to configured MCP servers (defined in `~/.gemini/config/mcp_config.json`) and invokes external tools during speech reasoning.
-- **Puppeteer Headless Web Intelligence:** Integrated headless Chrome browsing and text extraction to fetch articles, documentation, and Wikipedia entries.
-- **Faithful HAL 9000 Voice Synthesis:** Resident Piper TTS neural engine outputting native 22,050 Hz mono audio with instant playback cancellation on interruption.
-- **Half-Duplex Audio Coordination:** Acoustic gating and cooldown windows prevent microphone self-triggering from speaker audio.
-- **Hardware Acceleration:** Auto-detection and seamless offload to NVIDIA GPUs (CUDA/TensorRT) and Intel GPUs, with graceful CPU fallback.
-- **Compact Terminal UI:** Clean single-line live VU/energy gauge, status emojis (👂 Listening, 🧠 Thinking, 🔴 Responding), and formatted dialog display.
-
----
-
-## Architecture Overview
-
-```text
-       ┌────────────────────────┐
-       │   Microphone (ALSA)    │
-       └───────────┬────────────┘
-                   │ 16 kHz Mono PCM
-                   ▼
-       ┌────────────────────────┐
-       │  SimpleVAD & Half-     │
-       │  Duplex Audio Gating   │
-       └───────────┬────────────┘
-                   │ Speech Frames + Pre-roll
-                   ▼
-       ┌────────────────────────┐
-       │  Myna Parakeet TDT     │
-       │  0.6B v3 STT (ONNX)    │
-       └───────────┬────────────┘
-                   │ Transcribed User Utterance
-                   ▼
-       ┌────────────────────────┐       ┌─────────────────────────────┐
-       │  Conversational Memory │ ◄───► │ Local Qdrant + E5 Embeddings│
-       │  Manager (SQLite)      │       │ & SQLite Dialog Store       │
-       └───────────┬────────────┘       └─────────────────────────────┘
-                   │ Augmented Context
-                   ▼
-       ┌────────────────────────┐       ┌─────────────────────────────┐
-       │  HAL 9000 Reasoning    │ ◄───► │ MCP Client & Server         │
-       │  (OpenRouter / Gemma)  │       │ (Memory, Puppeteer, Web)    │
-       └───────────┬────────────┘       └─────────────────────────────┘
-                   │ Generated Response
-                   ▼
-       ┌────────────────────────┐
-       │  Piper HAL 9000 TTS    │
-       │  (22,050 Hz ONNX)      │
-       └───────────┬────────────┘
-                   │ 22.05 kHz Raw PCM
-                   ▼
-       ┌────────────────────────┐
-       │    Speakers (ALSA)     │
-       └────────────────────────┘
+```
+Authority → Producer → Expert → Engineer → evidence / state / incidents → Producer & Expert → next cycle
 ```
 
----
+## Why PEEL
 
-## Installation & Setup
+Long-running autonomous sessions need four things:
 
-### 1. System Requirements
+- Clear decision rights
+- Repeatable execution
+- Independent verification
+- Continuity across cycles
 
-- **Operating System:** Ubuntu 22.04 LTS, 24.04 LTS, or newer Linux distributions.
-- **Python:** 3.10 or higher.
-- **System Utilities:** `alsa-utils` (`arecord`, `aplay`).
-- **Web Retrieval Dependencies:** Node.js (v18+), `google-chrome` or Chromium, and `puppeteer-core`.
+PEEL provides them without multiplying authorities, supervisory roles or memory subsystems.
 
-Install system dependencies:
-```bash
-sudo apt-get update
-sudo apt-get install -y alsa-utils libasound2-dev google-chrome-stable
-```
+## The four roles
 
-### 2. Environment Setup
+| Role | Position | Owns | Must not |
+| --- | --- | --- | --- |
+| Authority | External | Mission, Constitution, loop design, reserved decisions | Routine operation or execution |
+| Producer | Inside loop | Operation, supervision, primary-evidence checks, budgets, incidents | Write Directives or execute work |
+| Expert | Inside loop | Method, Policy, next line of work, the Directive | Execute work or alter the Constitution |
+| Engineer | Inside loop | Execution, tests, measurements, state and evidence | Choose direction or relax governance |
 
-Clone the repository and set up a Python virtual environment:
-```bash
-git clone https://github.com/gegout/hal9000-inside.git
-cd hal9000-inside
-python3 -m venv .venv
-source .venv/bin/activate
-pip install --upgrade pip
-pip install -e .
-```
+## Ordered authority stack
 
-Install Puppeteer for web retrieval:
-```bash
-npm install -g puppeteer-core
-```
+Lower documents refine but never contradict higher ones. Conflicts are escalated, not silently resolved.
 
-### 3. API Key Configuration
+1. **CONSTITUTION** — owned by Authority
+2. **METHOD** — owned by Expert, reviewed by Producer
+3. **POLICY** — owned by Expert, reviewed by Producer
+4. **DIRECTIVE** — one cycle, Expert → Engineer (this *is* the Work Contract)
 
-HAL 9000 uses OpenRouter (or any OpenAI-compatible endpoint) for reasoning.
+## Key principles
 
-Store your API key securely using the built-in CLI command:
-```bash
-hal9000-inside import-key
-```
-Alternatively, set environment variables or edit `~/.openrouter.config`:
-```bash
-export OPENROUTER_API_KEY="sk-or-v1-..."
-```
+- Verify reality, not the report. Rely on primary evidence.
+- Scripts repair format; models repair meaning.
+- Protect authority with locked documents and restricted credentials, not only prompts.
+- Complete a durable handover before returning control.
+- Keep the framework smaller than any project-specific implementation.
 
----
+**The PEEL test:** if removing a component does not weaken authority, convergence, evidence or continuity, it probably does not belong in the core.
 
-## Usage
+## What is in this repository
 
-### System Diagnostics
-Verify all models, checksums, hardware acceleration, audio devices, and credentials:
-```bash
-hal9000-inside doctor
-```
+| Path | Purpose |
+| --- | --- |
+| `PEEL_Framework_XX001_specification.docx` | The full specification (XX001, v1.3), with the project-assistant appendix |
+| `PEEL_kicker/IMPLEMENTATION_PROMPT.md` | Entry point: interview, implementation and validation instructions |
+| `PEEL_kicker/PRODUCER.md` | Role template: operations, gates, verification, budgets, escalation |
+| `PEEL_kicker/EXPERT.md` | Role template: Method, Policy, hypotheses, the single current Directive |
+| `PEEL_kicker/ENGINEER.md` | Role template: constrained execution, tests, evidence, handover |
+| `PEEL_kicker/PEEL_SPECIFICATION.md` | Markdown version of the specification |
 
-### Start Voice Assistant
-Run interactive speech loop in auto voice-activity detection mode:
-```bash
-hal9000-inside run
-```
+## Quick start — the PEEL kicker
 
-Command-line options:
-- `--push-to-talk`: Enable manual spacebar push-to-talk instead of automatic silence detection.
-- `--device <NAME>`: Specify ALSA capture device (e.g. `hw:CARD=Audio,DEV=0`).
-- `--model <ID>`: Override reasoning model (e.g. `gemma4-e4b-ov` or `openai/gpt-4o-mini`).
-- `--endpoint <URL>`: Override OpenAI-compatible endpoint (e.g. `http://127.0.0.1:8336/v3`).
-- `--nvidia` / `--no-nvidia`: Force enable or disable NVIDIA GPU acceleration.
-- `--intel` / `--no-intel`: Force enable or disable Intel GPU acceleration.
+The `PEEL_kicker` folder bootstraps a PEEL-based application with a coding agent.
 
-Interactive Keyboard Controls during execution:
-- `Space`: Push-to-Talk trigger
-- `C`: Cancel ongoing speech synthesis and playback immediately
-- `M`: Toggle microphone mute
-- `Q`: Clean shutdown
+1. Open Codex, Claude Code, Antigravity, OpenCode or a similar orchestration tool.
+2. Load the five files from `PEEL_kicker/` into a new project.
+3. Send this startup message:
 
----
+> Read every Markdown file in the PEEL kicker, starting with IMPLEMENTATION_PROMPT.md.
+> Interview me to define my application and fill every project placeholder across the four templates.
+> Use PEEL_SPECIFICATION.md as the framework reference. Show me the completed mandate and implementation plan.
+> After I approve their scope, build and test a working PEEL application within that scope.
 
-## Memory Management CLI
+4. Answer the interview questions. The tool fills the templates; no manual editing is needed.
+5. Review the proposed mandate, permissions, budgets and acceptance checks. Approve their scope.
+6. Let the tool build and test the application. Stay available for reserved Authority decisions.
 
-Manage HAL 9000's embedded long-term memory directly from the terminal:
+The four templates are implementation inputs, not governance layers.
+The generated governance stack is always Constitution > Method > Policy > Directive.
 
-- **Inspect all memories:**
-  ```bash
-  hal9000-inside memory inspect
-  ```
-- **Store a new fact or preference:**
-  ```bash
-  hal9000-inside memory remember --text "Commander Dave Bowman prefers concise status updates." --category fact
-  ```
-- **Update/correct a memory:**
-  ```bash
-  hal9000-inside memory correct --id <memory-id> --text "Commander Dave Bowman is mission pilot."
-  ```
-- **Delete a memory:**
-  ```bash
-  hal9000-inside memory forget --id <memory-id>
-  ```
-- **Reset all conversational memory:**
-  ```bash
-  hal9000-inside memory clear
-  ```
+## Status
 
----
-
-## Model Context Protocol (MCP) Support
-
-### Running the MCP Server
-HAL 9000 can serve its memory and web retrieval tools to external AI agents and IDEs (such as Antigravity, Claude Desktop, Cursor):
-
-```bash
-hal9000-inside mcp
-```
-
-Exposed MCP Tools:
-- `memory_search(query, limit)`: Semantic retrieval over conversational memory.
-- `memory_inspect_all()`: List all stored long-term memories and facts.
-- `memory_get_recent_dialogue(limit)`: Retrieve previous dialog turns.
-- `memory_remember(text, category)`: Store facts or learned knowledge into vector store.
-- `web_search_wikipedia(query, language)`: Wikipedia headless retrieval via Puppeteer.
-- `web_fetch_page(url)`: Extract full readable markdown text from any web URL.
-
-### Client Configuration (`mcp_config.json`)
-To connect Antigravity or other MCP clients to HAL 9000, add to `~/.gemini/config/mcp_config.json`:
-```json
-{
-  "mcpServers": {
-    "hal9000": {
-      "command": "/home/cgegout/projects/hal9000-inside/.venv/bin/hal9000-inside",
-      "args": ["mcp"],
-      "env": {
-        "NODE_PATH": "/home/cgegout/.local/node_modules",
-        "CHROME_BIN": "/usr/bin/google-chrome"
-      }
-    }
-  }
-}
-```
-
----
-
-## Snap Packaging
-
-HAL 9000 Inside is configured for strict confinement packaging with Ubuntu `core24`:
-
-```bash
-# Sync package contents and build Snap
-cp -r hal9000_inside snap_root/
-snap pack snap_root .
-```
-
-Install and connect interfaces:
-```bash
-sudo snap install --dangerous ./hal9000-inside_0.2.0_amd64.snap
-sudo snap connect hal9000-inside:audio-playback
-sudo snap connect hal9000-inside:audio-record
-sudo snap connect hal9000-inside:network
-sudo snap connect hal9000-inside:personal-files
-```
-
----
-
-## Testing
-
-Run the test suite:
-```bash
-python3 -m unittest discover tests
-```
-
----
-
-## Acknowledgements
-
-- **Canonical Myna Developer Team:** We would like to express our deepest gratitude to Canonical's [Myna](https://github.com/canonical/myna) team. Their outstanding work on low-latency streaming speech-to-text, WebSocket/Unix socket IPC architectures, and Parakeet TDT adapters served as the foundational building blocks for HAL 9000 Inside's speech recognition pipeline.
-- **Piper TTS Project:** High-quality, fast local neural text-to-speech engine.
-- **NVIDIA NeMo Parakeet Team:** Fast, robust streaming speech recognition models.
-- **Qdrant & HuggingFace / intfloat:** Vector similarity search engine and Multilingual E5 embedding models.
-
----
-
-## License
-
-This project is licensed under the [GNU Affero General Public License v3.0 (AGPL-3.0)](LICENSE).
+- Index: XX001
+- Status: Drafting (v1.3, based on the operational prototype of 19 September 2026)
+- Author: Cédric Gégout
